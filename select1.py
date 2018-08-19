@@ -4,6 +4,7 @@ from selenium.webdriver.support.select import Select
 from time import sleep
 from bs4 import BeautifulSoup
 import pprint
+import re
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
@@ -11,6 +12,7 @@ import pandas as pd
 pp = pprint.PrettyPrinter()
 
 DISTRICT = 'Ernakulam'
+
 
 def wait_for_condition(driver, value=0):
     element = driver.find_element_by_id('count').text
@@ -45,6 +47,14 @@ def read_inner(driver):
     return inner_html
 
 
+def write_to_file(df, district, camp_name):
+    ''' Remove illegal characters from fileName '''
+    temp_str = district + '_' + camp_name
+    fName = re.sub(r'[\\/*?:"<>|]', "", temp_str)
+    fName = fName + '.csv'
+    df.to_csv(fName)
+
+
 class Drpdowm(unittest.TestCase):
 
     def setUp(self):
@@ -62,8 +72,9 @@ class Drpdowm(unittest.TestCase):
         s1 = Select(self.driver.find_element_by_id('district'))
         s1.select_by_visible_text(DISTRICT)
 
+        sleep(1)
         # Wait for value of span 'count' to update
-        wait_for_condition(self.driver, init_val)
+        # wait_for_condition(self.driver, init_val)
 
         # Select values of camp
         s2 = Select(self.driver.find_element_by_id('camp'))
@@ -78,10 +89,15 @@ class Drpdowm(unittest.TestCase):
             sleep(1)
             inner_html = read_inner(self.driver)
             df = parse_data(inner_html)
-            df['updated'] = pd.to_datetime(df.updated)
-            df = df.sort_values(by='updated', ascending=False)
-            df.to_csv(DISTRICT + '_' + camp_name + '.csv')
-            break
+
+            try:
+                df['updated'] = pd.to_datetime(df.updated)
+                df = df.sort_values(by='updated', ascending=False)
+            except AttributeError as e:
+                print 'No data available!!'
+                print e
+
+            write_to_file(df, DISTRICT, camp_name)
 
     def tearDown(self):
         sleep(1)
