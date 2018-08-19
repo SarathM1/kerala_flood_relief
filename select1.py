@@ -78,6 +78,8 @@ class Drpdowm(unittest.TestCase):
             sleep(1)
             inner_html = read_inner(self.driver)
             df = parse_data(inner_html)
+            df['updated'] = pd.to_datetime(df.updated)
+            df = df.sort_values(by='updated', ascending=False)
             df.to_csv(DISTRICT + '_' + camp_name + '.csv')
             break
 
