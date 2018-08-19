@@ -9,3 +9,7 @@ reads all data from http://savealife.in/ and creates csv files in current direct
 4. Selenium
 5. Firefox
 6. geckodriver (https://github.com/mozilla/geckodriver/releases)
+
+# Run
+
+python select1.py
