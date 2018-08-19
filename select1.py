@@ -2,7 +2,15 @@ import unittest
 from selenium import webdriver
 from selenium.webdriver.support.select import Select
 from time import sleep
+from bs4 import BeautifulSoup
+import pprint
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
+import pandas as pd
+pp = pprint.PrettyPrinter()
 
+DISTRICT = 'Ernakulam'
 
 def wait_for_condition(driver, value=0):
     element = driver.find_element_by_id('count').text
@@ -10,6 +18,31 @@ def wait_for_condition(driver, value=0):
     if(element != value):
         return
     sleep(1)
+
+
+def parse_data(text):
+    temp_list = []
+    soup = BeautifulSoup(''.join(text), features='html.parser')
+    for i in soup.prettify().split('<hr/>'):
+        soup_temp = BeautifulSoup(''.join(i), features='html.parser')
+        x = soup_temp.find_all('p')
+        temp_l2 = []
+        temp_dict = {}
+        for each_elem in x:
+            lines = each_elem.getText().strip().splitlines()
+            temp_l2.append(lines[2].strip())
+        if len(x) > 0:
+            temp_dict['updated'] = temp_l2[0]
+            temp_dict['item'] = temp_l2[1]
+            temp_list.append(temp_dict)
+            # print '~' * 30
+    return pd.DataFrame(temp_list)
+
+
+def read_inner(driver):
+    outer_div = driver.find_element_by_id("cart")
+    inner_html = outer_div.get_attribute('innerHTML')
+    return inner_html
 
 
 class Drpdowm(unittest.TestCase):
@@ -21,21 +54,31 @@ class Drpdowm(unittest.TestCase):
         self.driver.maximize_window()
         self.driver.get('http://savealife.in/')
 
+        # Read initial value of span 'count'
         init_val = self.driver.find_element_by_id('count').text
         init_val = int(init_val.partition(' ')[0])
-        s1 = Select(self.driver.find_element_by_id('district'))
-        for opt in s1.options:
-            s1.select_by_visible_text('Ernakulam')
 
+        # Update value of 'district'
+        s1 = Select(self.driver.find_element_by_id('district'))
+        s1.select_by_visible_text(DISTRICT)
+
+        # Wait for value of span 'count' to update
         wait_for_condition(self.driver, init_val)
 
+        # Select values of camp
         s2 = Select(self.driver.find_element_by_id('camp'))
         for option in s2.options:
-            print(option.text, option.get_attribute('value'))
-            text = option.text
-            if text == 'Select Camp':
+            camp_name = option.text
+            print(camp_name)
+            # Skip default value of 'camp'
+            if camp_name == 'Select Camp':
                 continue
-            s2.select_by_visible_text(text)
+            s2.select_by_visible_text(camp_name)
+            print 'Sleeping for 3 seconds'
+            sleep(1)
+            inner_html = read_inner(self.driver)
+            df = parse_data(inner_html)
+            df.to_csv(DISTRICT + '_' + camp_name + '.csv')
             break
 
     def tearDown(self):
